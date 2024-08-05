@@ -1,0 +1,5 @@
+# Exclude python deps
+__pycache__/
+env/
+dist/
+.pytest_cache/
