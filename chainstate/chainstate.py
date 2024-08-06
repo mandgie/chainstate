@@ -1,3 +1,6 @@
+import logging
+
+
 class InitialStateNotSetError(Exception):
     """Exception raised when the initial state is not set."""
 
@@ -23,12 +26,16 @@ class State:
         pass
 
     def next_state(self):
-        return None
+        raise NotImplementedError("next_state method must be implemented by subclasses")
 
 
 class EndState(State):
-    def action(self):
-        print(f"{self.__class__.__name__} is an end state. No further transitions.")
+    def next_state(self):
+        return None
+
+
+class StateTransitionError(Exception):
+    pass
 
 
 class Chain:
@@ -36,43 +43,68 @@ class Chain:
         self.states = {}
         self.current_state = None
         self.context = Context()
+        self.logger = logging.getLogger(__name__)
 
     def add_state(self, state_class):
         state_instance = state_class()
         state_instance.set_context(self.context)
         self.states[state_class] = state_instance
+        self.logger.info(f"Added state: {state_class.__name__}")
 
     def set_initial_state(self, state_class):
         if state_class in self.states:
             self.current_state = self.states[state_class]
             self.current_state.on_enter()
+            self.logger.info(f"Set initial state: {state_class.__name__}")
         else:
-            raise ValueError(f"State {state_class} not found.")
+            error_message = f"State {state_class.__name__} not found."
+            self.logger.error(error_message)
+            raise ValueError(error_message)
 
     def next(self):
         if self.current_state is None:
-            raise InitialStateNotSetError(
+            error_message = (
                 "Initial state not set. Please set the initial state before proceeding."
             )
+            self.logger.error(error_message)
+            raise InitialStateNotSetError(error_message)
 
         self.current_state.action()
-        if isinstance(self.current_state, EndState):
-            print("Reached an end state. No further transitions.")
-            return False
 
         next_state_class = self.current_state.next_state()
-        if next_state_class in self.states:
+        if next_state_class is None:
+            if isinstance(self.current_state, EndState):
+                self.logger.info(
+                    f"Reached EndState: {self.current_state.__class__.__name__}. Chain execution complete."
+                )
+                return False
+            else:
+                error_message = f"State {self.current_state.__class__.__name__} returned None unexpectedly."
+                self.logger.error(error_message)
+                raise StateTransitionError(error_message)
+        elif next_state_class not in self.states:
+            error_message = f"Next state {next_state_class.__name__} has not been added to the chain."
+            self.logger.error(error_message)
+            raise StateTransitionError(error_message)
+        else:
             self.current_state = self.states[next_state_class]
             self.current_state.on_enter()
+            self.logger.info(f"Transitioned to state: {next_state_class.__name__}")
             return True
-        else:
-            raise ValueError(f"Transition to state {next_state_class} not possible.")
 
     def run(self):
         if self.current_state is None:
-            raise InitialStateNotSetError(
+            error_message = (
                 "Initial state not set. Please set the initial state before running."
             )
+            self.logger.error(error_message)
+            raise InitialStateNotSetError(error_message)
 
-        while self.next():
-            pass
+        self.logger.info("Starting chain execution")
+        try:
+            while self.next():
+                pass
+            self.logger.info("Chain execution completed successfully")
+        except StateTransitionError as e:
+            self.logger.error(f"Chain execution failed: {str(e)}")
+            raise
