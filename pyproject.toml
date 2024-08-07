@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chainstate"
-version = "0.1.4"
+version = "0.1.5"
 description = "A simple state chain library for Python"
 authors = ["Magnus Friberg <magnus.uno.friberg@gmail.com>"]
 readme = "README.md"
