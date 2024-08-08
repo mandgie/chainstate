@@ -5,6 +5,7 @@ from chainstate import (
     EndState,
     InitialStateNotSetError,
     StateTransitionError,
+    ChainCompletedError,
 )
 
 
@@ -94,3 +95,84 @@ def test_state_without_next_state_implementation():
     with pytest.raises(NotImplementedError) as excinfo:
         chain.run()
     assert "next_state method must be implemented by subclasses" in str(excinfo.value)
+
+
+def test_chain_completed_property():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+
+    assert not chain.is_completed
+    chain.run()
+    assert chain.is_completed
+
+
+def test_chain_completed_error():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.run()
+
+    with pytest.raises(ChainCompletedError):
+        chain.next()
+
+
+def test_chain_reset():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.run()
+
+    assert chain.is_completed
+    assert chain.context.data["greeting_done"] is True
+
+    chain.reset()
+    assert not chain.is_completed
+    assert chain.current_state is None
+    assert "greeting_done" not in chain.context.data
+
+
+def test_chain_rerun_after_reset():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.run()
+
+    chain.reset()
+    chain.set_initial_state(GreetingState)
+    chain.run()
+    assert chain.is_completed
+    assert chain.context.data["greeting_done"] is True
+
+
+def test_is_completed_read_only():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.run()
+
+    assert chain.is_completed
+
+    # Attempt to modify is_completed (should not work)
+    with pytest.raises(AttributeError):
+        chain.is_completed = False
+
+    assert chain.is_completed  # Should still be True
+
+
+def test_multiple_runs_without_reset():
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.run()
+
+    with pytest.raises(ChainCompletedError) as excinfo:
+        chain.run()
+
+    assert "Chain has already completed execution" in str(excinfo.value)

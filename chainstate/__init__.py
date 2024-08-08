@@ -4,6 +4,7 @@ from .chainstate import (
     EndState,
     InitialStateNotSetError,
     StateTransitionError,
+    ChainCompletedError,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "EndState",
     "InitialStateNotSetError",
     "StateTransitionError",
+    "ChainCompletedError",
 ]

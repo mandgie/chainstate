@@ -1,8 +1,21 @@
 import logging
+from typing import Optional, Type
 
 
 class InitialStateNotSetError(Exception):
     """Exception raised when the initial state is not set."""
+
+    pass
+
+
+class StateTransitionError(Exception):
+    """Exception raised when there's an error in state transition."""
+
+    pass
+
+
+class ChainCompletedError(Exception):
+    """Exception raised when trying to progress a completed chain."""
 
     pass
 
@@ -14,9 +27,9 @@ class Context:
 
 class State:
     def __init__(self):
-        self.context = None
+        self.context: Optional[Context] = None
 
-    def set_context(self, context):
+    def set_context(self, context: Context):
         self.context = context
 
     def on_enter(self):
@@ -25,33 +38,30 @@ class State:
     def action(self):
         pass
 
-    def next_state(self):
+    def next_state(self) -> Optional[Type["State"]]:
         raise NotImplementedError("next_state method must be implemented by subclasses")
 
 
 class EndState(State):
-    def next_state(self):
+    def next_state(self) -> None:
         return None
-
-
-class StateTransitionError(Exception):
-    pass
 
 
 class Chain:
     def __init__(self):
         self.states = {}
-        self.current_state = None
+        self.current_state: Optional[State] = None
         self.context = Context()
         self.logger = logging.getLogger(__name__)
+        self.__is_completed = False
 
-    def add_state(self, state_class):
+    def add_state(self, state_class: Type[State]):
         state_instance = state_class()
         state_instance.set_context(self.context)
         self.states[state_class] = state_instance
         self.logger.info(f"Added state: {state_class.__name__}")
 
-    def set_initial_state(self, state_class):
+    def set_initial_state(self, state_class: Type[State]):
         if state_class in self.states:
             self.current_state = self.states[state_class]
             self.current_state.on_enter()
@@ -61,7 +71,12 @@ class Chain:
             self.logger.error(error_message)
             raise ValueError(error_message)
 
-    def next(self):
+    def next(self) -> bool:
+        if self.__is_completed:
+            raise ChainCompletedError(
+                "Chain has already reached an EndState and cannot progress further."
+            )
+
         if self.current_state is None:
             error_message = (
                 "Initial state not set. Please set the initial state before proceeding."
@@ -77,6 +92,7 @@ class Chain:
                 self.logger.info(
                     f"Reached EndState: {self.current_state.__class__.__name__}. Chain execution complete."
                 )
+                self.__is_completed = True
                 return False
             else:
                 error_message = f"State {self.current_state.__class__.__name__} returned None unexpectedly."
@@ -93,6 +109,11 @@ class Chain:
             return True
 
     def run(self):
+        if self.__is_completed:
+            raise ChainCompletedError(
+                "Chain has already completed execution and cannot be run again without resetting."
+            )
+
         if self.current_state is None:
             error_message = (
                 "Initial state not set. Please set the initial state before running."
@@ -108,3 +129,15 @@ class Chain:
         except StateTransitionError as e:
             self.logger.error(f"Chain execution failed: {str(e)}")
             raise
+        except ChainCompletedError:
+            self.logger.info("Chain has already completed execution")
+
+    def reset(self):
+        self.current_state = None
+        self.__is_completed = False
+        self.context.data.clear()
+        self.logger.info("Chain has been reset")
+
+    @property
+    def is_completed(self) -> bool:
+        return self.__is_completed
