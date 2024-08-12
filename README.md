@@ -6,15 +6,6 @@
 
 Chainstate is a powerful and intuitive Python library for implementing state machines. It provides a flexible and easy-to-use framework for defining, managing, and transitioning between states in your applications, with built-in support for sharing data between states.
 
-## Features
-
-- Simple and intuitive API for defining states and transitions
-- Built-in context for sharing data between states
-- Error handling for common state machine issues
-- Extensible design allowing for custom state behaviors
-- Logging support for easy debugging and monitoring
-- Type hinting for improved code readability and IDE support
-
 ## Installation
 
 Install Chainstate using pip:
