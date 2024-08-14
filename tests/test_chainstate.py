@@ -176,3 +176,22 @@ def test_multiple_runs_without_reset():
         chain.run()
 
     assert "Chain has already completed execution" in str(excinfo.value)
+
+
+def test_completion_callback():
+    callback_executed = False
+
+    def completion_callback():
+        nonlocal callback_executed
+        callback_executed = True
+
+    chain = Chain()
+    chain.add_state(GreetingState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(GreetingState)
+    chain.set_completion_callback(completion_callback)
+
+    assert not callback_executed
+    chain.run()
+    assert callback_executed
+    assert chain.is_completed
