@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Type
+from typing import Optional, Type, Callable
 
 
 class InitialStateNotSetError(Exception):
@@ -54,6 +54,7 @@ class Chain:
         self.context = Context()
         self.logger = logging.getLogger(__name__)
         self.__is_completed = False
+        self.__completion_callback: Optional[Callable] = None
 
     def add_state(self, state_class: Type[State]):
         state_instance = state_class()
@@ -70,6 +71,10 @@ class Chain:
             error_message = f"State {state_class.__name__} not found."
             self.logger.error(error_message)
             raise ValueError(error_message)
+
+    def set_completion_callback(self, callback: Callable):
+        self.__completion_callback = callback
+        self.logger.info("Set completion callback")
 
     def next(self) -> bool:
         if self.__is_completed:
@@ -126,6 +131,9 @@ class Chain:
             while self.next():
                 pass
             self.logger.info("Chain execution completed successfully")
+            if self.__completion_callback:
+                self.__completion_callback()
+                self.logger.info("Completion callback executed")
         except StateTransitionError as e:
             self.logger.error(f"Chain execution failed: {str(e)}")
             raise
