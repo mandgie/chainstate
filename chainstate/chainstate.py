@@ -25,12 +25,26 @@ class Context:
         self.data = {}
 
 
+class StaticContext(Context):
+    """Context for storing long-term/static data that persists across resets"""
+    pass
+
+
+class DynamicContext(Context):
+    """Context for storing temporary/dynamic data that can be reset"""
+    pass
+
+
 class State:
     def __init__(self):
         self.context: Optional[Context] = None
+        self.static_context: Optional[StaticContext] = None
+        self.dynamic_context: Optional[DynamicContext] = None
 
-    def set_context(self, context: Context):
+    def set_contexts(self, context: Context, static_context: StaticContext, dynamic_context: DynamicContext):
         self.context = context
+        self.static_context = static_context
+        self.dynamic_context = dynamic_context
 
     def on_enter(self):
         pass
@@ -52,20 +66,21 @@ class Chain:
         self.states = {}
         self.current_state: Optional[State] = None
         self.context = Context()
+        self.static_context = StaticContext()
+        self.dynamic_context = DynamicContext()
         self.logger = logging.getLogger(__name__)
         self.__is_completed = False
         self.__completion_callback: Optional[Callable] = None
 
     def add_state(self, state_class: Type[State]):
         state_instance = state_class()
-        state_instance.set_context(self.context)
+        state_instance.set_contexts(self.context, self.static_context, self.dynamic_context)
         self.states[state_class] = state_instance
         self.logger.info(f"Added state: {state_class.__name__}")
 
     def set_initial_state(self, state_class: Type[State]):
         if state_class in self.states:
             self.current_state = self.states[state_class]
-            self.current_state.on_enter()
             self.logger.info(f"Set initial state: {state_class.__name__}")
         else:
             error_message = f"State {state_class.__name__} not found."
@@ -128,6 +143,8 @@ class Chain:
 
         self.logger.info("Starting chain execution")
         try:
+            self.current_state.on_enter()
+            
             while self.next():
                 pass
             self.logger.info("Chain execution completed successfully")
@@ -141,10 +158,14 @@ class Chain:
             self.logger.info("Chain has already completed execution")
 
     def reset(self):
+        """
+        Reset the chain's state and dynamic context while preserving static context.
+        """
         self.current_state = None
         self.__is_completed = False
         self.context.data.clear()
-        self.logger.info("Chain has been reset")
+        self.dynamic_context.data.clear()
+        self.logger.info("Chain has been reset (dynamic data cleared, static data preserved)")
 
     @property
     def is_completed(self) -> bool:

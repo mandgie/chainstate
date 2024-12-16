@@ -195,3 +195,42 @@ def test_completion_callback():
     chain.run()
     assert callback_executed
     assert chain.is_completed
+
+
+def test_static_context_persistence():
+    class StaticDataState(State):
+        def action(self):
+            # Set both static and dynamic data
+            self.static_context.data['permanent'] = 'stays_here'
+            self.dynamic_context.data['temporary'] = 'goes_away'
+            self.context.data['old_way'] = 'cleared_too'
+
+        def next_state(self):
+            return FinalState
+
+    chain = Chain()
+    chain.add_state(StaticDataState)
+    chain.add_state(FinalState)
+    chain.set_initial_state(StaticDataState)
+    
+    # First run
+    chain.run()
+    
+    # Verify all data is present after first run
+    assert chain.static_context.data['permanent'] == 'stays_here'
+    assert chain.dynamic_context.data['temporary'] == 'goes_away'
+    assert chain.context.data['old_way'] == 'cleared_too'
+    
+    # Reset the chain
+    chain.reset()
+    
+    # Verify only static data persists
+    assert chain.static_context.data['permanent'] == 'stays_here'
+    assert 'temporary' not in chain.dynamic_context.data
+    assert 'old_way' not in chain.context.data
+    
+    # Run again
+    chain.set_initial_state(StaticDataState)
+    chain.run()
+    
+    # Verify static data remained unchanged while others
